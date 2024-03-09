@@ -1,0 +1,283 @@
+train code:
+import pickle
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import accuracy_score
+import numpy as np
+
+def pad_sequences(data, target_length):
+    padded_data = []
+    for sequence in data:
+        if len(sequence) >= target_length:
+            padded_data.append(sequence[:target_length])
+        else:
+            padded_data.append(np.pad(sequence, (0, target_length - len(sequence)), mode='constant'))
+    return np.asarray(padded_data)
+
+def train_and_save_model(data_path, model_save_path='model.p', target_length=100):
+    # Load data
+    data_dict = pickle.load(open(data_path, 'rb'))
+    
+    # Ensure consistent shapes in the data
+    data = pad_sequences(data_dict['data'], target_length=target_length)
+    labels = np.asarray(data_dict['labels'])
+
+    # Split data into training and testing sets
+    x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, shuffle=True, stratify=labels, random_state=42)
+
+    # Hyperparameter tuning with GridSearchCV
+    param_grid = {
+        'n_estimators': [50, 100, 200],
+        'max_depth': [None, 10, 20],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+
+    rf = RandomForestClassifier(random_state=42)
+    grid_search = GridSearchCV(rf, param_grid, cv=5, n_jobs=-1)
+    grid_search.fit(x_train, y_train)
+
+    # Evaluate the best model
+    best_rf = grid_search.best_estimator_
+    y_predict = best_rf.predict(x_test)
+    score = accuracy_score(y_predict, y_test)
+    print('Accuracy: {}%'.format(score * 100))
+
+    # Save the trained model
+    with open(model_save_path, 'wb') as f:
+        pickle.dump({'model': best_rf}, f)
+
+# Example usage
+train_and_save_model('./data.pickle', 'model.p', target_length=100)
+
+
+
+
+import pickle
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from keras.models import Sequential
+from keras.layers import Dense, Flatten, Conv1D, MaxPooling1D
+from keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Conv1D, MaxPooling1D
+from tensorflow.keras.utils import to_categorical
+
+def pad_sequences(data, target_length):
+    padded_data = []
+    for sequence in data:
+        if len(sequence) >= target_length:
+            padded_data.append(sequence[:target_length])
+        else:
+            padded_data.append(np.pad(sequence, (0, target_length - len(sequence)), mode='constant'))
+    return np.asarray(padded_data)
+
+def train_and_save_model(data_path, model_save_path='model.h5', target_length=100):
+    # Load data
+    data_dict = pickle.load(open(data_path, 'rb'))
+    
+    # Ensure consistent shapes in the data
+    data = pad_sequences(data_dict['data'], target_length=target_length)
+    labels = np.asarray(data_dict['labels'])
+
+    # Split data into training and testing sets
+    x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, shuffle=True, stratify=labels, random_state=42)
+
+    # Reshape data for CNN
+    x_train = np.expand_dims(x_train, axis=2)
+    x_test = np.expand_dims(x_test, axis=2)
+    y_train = to_categorical(y_train)
+    y_test = to_categorical(y_test)
+
+    # CNN model architecture
+    model = Sequential()
+    model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(target_length, 1)))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Flatten())
+    model.add(Dense(50, activation='relu'))
+    model.add(Dense(len(np.unique(labels)), activation='softmax'))
+
+    # Compile the model
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    # Train the model
+    model.fit(x_train, y_train, epochs=10, batch_size=32, validation_data=(x_test, y_test))
+
+    # Evaluate the model
+    _, accuracy = model.evaluate(x_test, y_test)
+    print('Accuracy: {}%'.format(accuracy * 100))
+
+    # Save the trained model
+    model.save(model_save_path)
+
+# Example usage
+train_and_save_model('./data.pickle', 'my_model.keras', target_length=100)
+
+
+
+
+
+
+test code:
+import pickle
+import cv2
+import mediapipe as mp
+import numpy as np
+import tkinter as tk
+from PIL import Image, ImageTk
+from tensorflow.keras.models import load_model
+
+def pad_sequences(data, target_length):
+    padded_data = []
+    for sequence in data:
+        if len(sequence) >= target_length:
+            padded_data.append(sequence[:target_length])
+        else:
+            padded_data.append(np.pad(sequence, (0, target_length - len(sequence)), mode='constant', constant_values=0))
+    return np.asarray(padded_data, dtype=np.float32)
+
+try:
+    # Load the trained model
+    model = load_model('./my_model.keras')
+
+    # Check if the webcam is opened successfully
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Couldn't open the webcam.")
+        exit()
+
+    mp_hands = mp.solutions.hands
+    mp_drawing = mp.solutions.drawing_utils
+    mp_drawing_styles = mp.solutions.drawing_styles
+
+    hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
+
+    labels_dict = {0:'अ' , 1:'आ' , 2:'इ' , 3:'ई' , 4:'उ' , 5:'ऊ' , 6:'ए' , 7:'ऐ' , 8:'ओ' , 9:'औ' , 10:'क' , 11:'ख' , 12:'ग' , 13:'घ' , 14:'च' , 15:'छ' , 16:'ज' , 17:'झ' , 18:'ट' , 19:'ठ' , 20:'ड' , 21:'ढ' , 22:'ण' , 23:'त' , 24:'थ' , 25:'द' , 26:'ध' , 27:'न' , 28:'प' , 29:'फ' , 30:'ब' , 31:'भ' , 32:'म' , 33:'य' , 34:'र' , 35:'ल' , 36:'व' , 37:'श' , 38:'स' , 39:'ह' , 40:'ळ' , 41:'क्ष' , 42:'ज्ञ'}
+
+    # Define the expected characters range
+    expected_characters = list(labels_dict.values())
+
+    # Create Tkinter window
+    window = tk.Tk()
+    window.title("Devanagari Hand Gesture Recognition")
+
+    font = ('Noto Sans Devanagari', 50)
+
+    # Create a canvas to display the video feed
+    canvas = tk.Canvas(window, width=640, height=480)
+    canvas.pack()
+
+    # Create a Label for displaying the predicted character
+    text_label = tk.Label(window, text="", font=font)
+    text_label.place(x=10, y=10)  # Adjust the position as needed
+
+    # Declare global variables
+    x1, y1, x2, y2 = 0, 0, 0, 0
+
+    def update_frame():
+        global x1, y1, x2, y2  # Declare the variables as global
+        try:
+            data_aux = []
+            x_ = []
+            y_ = []
+
+            ret, frame = cap.read()
+
+            if not ret:
+                print("Error reading frame from the webcam.")
+                return
+
+            H, W, _ = frame.shape
+
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            results = hands.process(frame_rgb)
+            if results.multi_hand_landmarks and len(results.multi_hand_landmarks) > 0:
+                for hand_landmarks in results.multi_hand_landmarks:
+                    mp_drawing.draw_landmarks(
+                        frame,  # image to draw
+                        hand_landmarks,  # model output
+                        mp_hands.HAND_CONNECTIONS,  # hand connections
+                        mp_drawing_styles.get_default_hand_landmarks_style(),
+                        mp_drawing_styles.get_default_hand_connections_style())
+
+                    for i in range(len(hand_landmarks.landmark)):
+                        x = hand_landmarks.landmark[i].x
+                        y = hand_landmarks.landmark[i].y
+
+                        x_.append(x)
+                        y_.append(y)
+
+                    for i in range(len(hand_landmarks.landmark)):
+                        x = hand_landmarks.landmark[i].x
+                        y = hand_landmarks.landmark[i].y
+                        data_aux.append(x - min(x_))
+                        data_aux.append(y - min(y_))
+
+                    # Pad the input sequence to match the expected length
+                    padded_data = pad_sequences([data_aux], target_length=100)
+
+                    # Make prediction
+                    prediction = model.predict(padded_data)
+
+                    # Check if the prediction is successful
+                    if prediction is not None and len(prediction) > 0:
+                        predicted_class = np.argmax(prediction)  # Get the index of the highest probability
+                        if predicted_class in labels_dict:
+                            predicted_character = labels_dict[predicted_class]
+
+                            # Check if the predicted character is within the expected range
+                            if predicted_character in expected_characters:
+                                # Update the Label with the predicted character
+                                text_label.config(text=predicted_character)
+                            else:
+                                # Display error message if the predicted character is not in the expected range
+                                error_message = "Error: Unrecognized character"
+                                cv2.putText(frame, error_message, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3,
+                                            cv2.LINE_AA)
+                                # Update the Label with the error message
+                                text_label.config(text=error_message)
+                        else:
+                            # Display error message if the predicted class is not in the labels dictionary
+                            error_message = "Error: Unable to recognize"
+                            cv2.putText(frame, error_message, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3,
+                                        cv2.LINE_AA)
+                            # Update the Label with the error message
+                            text_label.config(text=error_message)
+                    else:
+                        # Display error message if prediction is unsuccessful
+                        error_message = "Error: Prediction unsuccessful"
+                        cv2.putText(frame, error_message, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3,
+                                    cv2.LINE_AA)
+                        # Update the Label with the error message
+                        text_label.config(text=error_message)
+
+            else:
+                # Display error message if hand landmarks are not detected
+                error_message = "Error: Hand landmarks not detected"
+                cv2.putText(frame, error_message, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3,
+                            cv2.LINE_AA)
+                # Update the Label with the error message
+                text_label.config(text=error_message)
+
+            img = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+            canvas.img = img
+            canvas.create_image(0, 0, anchor=tk.NW, image=img)
+
+            # Call the update_frame function after a delay
+            window.after(10, update_frame)
+
+        except Exception as e:
+            import traceback
+            print("Error in update_frame:", e)
+            traceback.print_exc()  # Print the full traceback
+
+    # Call the update_frame function to start displaying the video feed
+    update_frame()
+
+    # Start the Tkinter event loop
+    window.mainloop()
+
+except Exception as e:
+    print("Error:", e)
