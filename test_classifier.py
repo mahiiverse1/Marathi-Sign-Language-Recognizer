@@ -5,6 +5,9 @@ import numpy as np
 import tkinter as tk
 from PIL import Image, ImageTk
 from tensorflow.keras.models import load_model
+from gtts import gTTS  # Import gTTS library for text-to-speech
+import tempfile
+import pygame
 
 # Function to pad sequences
 def pad_sequences(data, target_length):
@@ -15,6 +18,23 @@ def pad_sequences(data, target_length):
         else:
             padded_data.append(np.pad(sequence, (0, target_length - len(sequence)), mode='constant', constant_values=0))
     return np.asarray(padded_data, dtype=np.float32)
+
+# Function to play audio
+def play_audio(file_path):
+    pygame.mixer.init()
+    pygame.mixer.music.load(file_path)
+    pygame.mixer.music.play()
+
+def on_speak_click(text):
+    print("Text to be spoken:", text)  # Check if the correct text is retrieved
+    # Create a temporary file to store the generated speech
+    with tempfile.NamedTemporaryFile(delete=False) as fp:
+        # Convert text to speech and save it to the temporary file
+        tts = gTTS(text=text, lang='mr')  # 'mr' is the language code for Marathi
+        tts.save(f"{fp.name}.mp3")
+        print("Saved speech to:", f"{fp.name}.mp3")  # Check if the speech is saved
+        # Play the generated speech using pygame
+        play_audio(f"{fp.name}.mp3")
 
 try:
     # Load the trained model
@@ -51,10 +71,10 @@ try:
 
     # Define fonts
     title_font = ('Noto Sans Devanagari', 30, 'bold')
-    label_font = ('Noto Sans Devanagari', 20)
+    label_font = ('Noto Sans Devanagari', 25)  # Increase font size
 
     # Create a frame for the video feed and predicted character
-    frame = tk.Frame(window, bg='#97CAEF')
+    frame = tk.Frame(window, bg='#51829B', width=1600, height=900)  # Set width and height to match canvas
     frame.pack(padx=20, pady=20)
 
     # Create a Label for the title
@@ -62,20 +82,27 @@ try:
     title_label.pack(pady=10)
 
     # Create a canvas to display the video feed
-    canvas = tk.Canvas(frame, width=500, height=500, bg='white')
-    canvas.pack()
+    canvas_width = int(window.winfo_screenwidth() * 0.7)  # Set canvas width to 70% of screen width
+    canvas = tk.Canvas(frame, width=canvas_width, height=550, bg='white')  # Set initial height to 550
+    canvas.pack(expand=True, fill=tk.X)  # Use expand and fill to stretch canvas horizontally
 
-    # Create a Label for displaying the predicted character
+    # Create a Label for displaying the predicted character with increased font size
     text_label = tk.Label(frame, text="", font=label_font, fg="blue", bg='#f0f0f0')
-    text_label.pack(pady=10)
+    text_label.pack(pady=20)  # Increase pady for spacing
 
-    # Create variables for hand coordinates
-    x1, y1, x2, y2 = 0, 0, 0, 0
+    # Create a button for converting text to speech
+    speak_button = tk.Button(frame, text="Text-to-Speech", command=lambda: on_speak_click(text_label.cget("text")), font=('Noto Sans Devanagari', 20), bg="#DBCC95", fg="black", relief=tk.RAISED, padx=10, pady=5)
+    speak_button.pack(pady=(0, 10))  # Add margin after the button
+
+
+    # Function to maintain aspect ratio of the webcam feed
+    def maintain_aspect_ratio(image, width):
+        h, w = image.shape[:2]
+        aspect_ratio = w / h
+        return cv2.resize(image, (width, int(width / aspect_ratio)))
 
     # Function to update the frame
     def update_frame():
-        global x1, y1, x2, y2
-
         try:
             data_aux = []
             x_ = []
@@ -87,7 +114,7 @@ try:
                 print("Error reading frame from the webcam.")
                 return
 
-            H, W, _ = frame.shape
+            frame = maintain_aspect_ratio(frame, canvas_width)  # Maintain aspect ratio while resizing
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -141,7 +168,8 @@ try:
 
             img = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
             canvas.img = img
-            canvas.create_image(0, 0, anchor=tk.NW, image=img)
+            # Center the image in canvas
+            canvas.create_image((canvas_width - img.width()) // 2, 0, anchor=tk.NW, image=img)
 
             # Call the update_frame function after a delay
             window.after(10, update_frame)
