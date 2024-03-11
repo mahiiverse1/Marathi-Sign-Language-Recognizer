@@ -88,6 +88,7 @@ try:
 
     # Create a Label for displaying the predicted character with increased font size
     text_label = tk.Label(frame, text="", font=label_font, fg="blue", bg='#f0f0f0')
+
     text_label.pack(pady=20)  # Increase pady for spacing
 
     # Create a button for converting text to speech
@@ -111,6 +112,7 @@ try:
             ret, frame = cap.read()
 
             if not ret:
+                
                 print("Error reading frame from the webcam.")
                 return
 
