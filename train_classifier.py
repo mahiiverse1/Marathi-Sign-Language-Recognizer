@@ -23,14 +23,17 @@ def train_and_save_model(data_path, model_save_path='my_model.h5', target_length
     data = pad_sequences(data_dict['data'], target_length=target_length)
     labels = np.asarray(data_dict['labels'])
 
+    # Find the number of unique classes in the dataset
+    num_classes = len(np.unique(labels))
+
     # Split data into training and testing sets
     x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, shuffle=True, stratify=labels, random_state=42)
 
     # Reshape data for CNN
     x_train = np.expand_dims(x_train, axis=2)
     x_test = np.expand_dims(x_test, axis=2)
-    y_train = to_categorical(y_train)
-    y_test = to_categorical(y_test)
+    y_train = to_categorical(y_train, num_classes=num_classes)  # Specify the number of classes correctly
+    y_test = to_categorical(y_test, num_classes=num_classes)  # Specify the number of classes correctly
 
     # CNN model architecture
     model = Sequential()
@@ -38,7 +41,7 @@ def train_and_save_model(data_path, model_save_path='my_model.h5', target_length
     model.add(MaxPooling1D(pool_size=2))
     model.add(Flatten())
     model.add(Dense(50, activation='relu'))
-    model.add(Dense(len(np.unique(labels)), activation='softmax'))
+    model.add(Dense(num_classes, activation='softmax'))  # Specify the number of classes correctly
 
     # Compile the model
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])

@@ -5,8 +5,8 @@ DATA_DIR = './data'
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-number_of_classes = 58
-dataset_size = 100
+number_of_classes = 73
+dataset_size = 125
 
 # Use camera index 0 (the first camera) instead of 2
 cap = cv2.VideoCapture(0)
